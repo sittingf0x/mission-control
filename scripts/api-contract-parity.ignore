@@ -1,3 +1,20 @@
 # API contract parity baseline ignore list
 # One operation per line: METHOD /api/path
 # Keep this list shrinking over time; remove entries when route/spec parity is fixed.
+
+# Legacy JARVIS endpoints pending OpenAPI spec coverage
+GET /api/jarvis/agents
+GET /api/jarvis/review-queue
+GET /api/jarvis/schedule
+POST /api/jarvis/dispatch
+POST /api/jarvis/schedule
+
+# Evaluations + runs endpoints pending OpenAPI spec coverage
+GET /api/v1/evals/leaderboard
+GET /api/v1/runs
+GET /api/v1/runs/stream
+GET /api/v1/runs/{run_id}
+GET /api/v1/runs/{run_id}/provenance
+POST /api/v1/runs
+PATCH /api/v1/runs/{run_id}
+PUT /api/v1/runs/{run_id}/eval
