@@ -418,6 +418,7 @@ export function ChatWorkspace({ mode = 'embedded', onClose }: ChatWorkspaceProps
 
             {selectedConversation?.source === 'session' && selectedConversation.session ? (
               <SessionConversationView
+                key={selectedConversation.session.sessionId}
                 session={selectedConversation.session}
                 messages={sessionTranscript}
                 loading={sessionTranscriptLoading}
@@ -461,7 +462,7 @@ function SessionConversationView({
   onSavePreferences: (payload: { prefKey: string; displayName?: string; colorTag?: string }) => Promise<void>
 }) {
   const isGatewaySession = session.sessionKind === 'gateway'
-  const supportsPty = (session.sessionKind === 'claude-code' || session.sessionKind === 'codex-cli') && session.active
+  const isPtyCapableKind = session.sessionKind === 'claude-code' || session.sessionKind === 'codex-cli'
   const [viewMode, setViewMode] = useState<'terminal' | 'transcript'>('transcript')
   const prevSessionIdRef = useRef(session.sessionId)
   const transcriptScrollRef = useRef<HTMLDivElement | null>(null)
@@ -600,7 +601,7 @@ function SessionConversationView({
           {session.age && <span className="text-muted-foreground/40">{session.age} ago</span>}
 
           {/* Terminal/Transcript toggle for PTY-capable sessions */}
-          {supportsPty && (
+          {isPtyCapableKind && (
             <div className="ml-auto flex rounded-md border border-border/50 overflow-hidden">
               <button
                 type="button"
@@ -669,7 +670,7 @@ function SessionConversationView({
       </div>
 
       {/* Terminal view (xterm.js PTY) */}
-      {supportsPty && viewMode === 'terminal' && (
+      {isPtyCapableKind && viewMode === 'terminal' && (
         <div className="flex-1 min-h-0">
           <TerminalView
             sessionId={session.sessionId}
@@ -681,7 +682,7 @@ function SessionConversationView({
       )}
 
       {/* Transcript view */}
-      {(!supportsPty || viewMode === 'transcript') && (
+      {(!isPtyCapableKind || viewMode === 'transcript') && (
         <div ref={transcriptScrollRef} className="flex-1 overflow-y-auto font-mono-tight py-2">
           {loading && (
             <div className="space-y-2 px-4">
