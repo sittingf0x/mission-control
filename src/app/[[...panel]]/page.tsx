@@ -135,8 +135,7 @@ export default function Home() {
 
   useEffect(() => {
     if (!bootComplete && initSteps.every(s => s.status === 'done')) {
-      const t = setTimeout(() => setBootComplete(), 150)
-      return () => clearTimeout(t)
+      setBootComplete()
     }
   }, [initSteps, bootComplete, setBootComplete])
 
