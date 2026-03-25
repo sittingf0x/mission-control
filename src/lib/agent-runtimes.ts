@@ -318,12 +318,16 @@ async function installOpenClawLocal(job: InstallJob): Promise<void> {
   job.output += '> Installing OpenClaw...\n'
   const env = getInstallEnv()
   try {
-    const result = await runCommand('bash', ['-c', 'curl -fsSL https://get.openclaw.dev | bash'], {
+    const result = await runCommand('bash', ['-c', 'set -o pipefail; curl -fsSL https://get.openclaw.dev | bash'], {
       timeoutMs: 300_000, env,
     })
     if (result.stdout) job.output += result.stdout + '\n'
     if (result.stderr) job.output += result.stderr + '\n'
-    if (result.code === 0) {
+
+    // Verify the binary actually exists after install
+    const { installed: verified } = detectBinary([config.openclawBin || 'openclaw'])
+
+    if (result.code === 0 && verified) {
       job.output += '\n> OpenClaw installed. Running initial setup...\n'
       try {
         const onboard = await runCommand('openclaw', ['onboard', '--non-interactive'], { timeoutMs: 60_000, env })
@@ -334,6 +338,10 @@ async function installOpenClawLocal(job: InstallJob): Promise<void> {
       }
       job.status = 'success'
       job.output += '\n> OpenClaw installed successfully.\n'
+    } else if (result.code === 0 && !verified) {
+      job.status = 'failed'
+      job.error = 'Install command succeeded but openclaw binary was not found. curl may not be installed.'
+      job.output += '\n> Install command ran but openclaw was not detected. Is curl installed?\n'
     } else {
       job.status = 'failed'
       job.error = `Install exited with code ${result.code}`
@@ -351,16 +359,24 @@ async function installHermesLocal(job: InstallJob): Promise<void> {
   job.output += '> Installing Hermes Agent via official installer...\n'
   const env = getInstallEnv()
   try {
-    const result = await runCommand('bash', ['-c', 'curl -fsSL https://raw.githubusercontent.com/NousResearch/hermes-agent/main/scripts/install.sh | bash'], {
+    const result = await runCommand('bash', ['-c', 'set -o pipefail; curl -fsSL https://raw.githubusercontent.com/NousResearch/hermes-agent/main/scripts/install.sh | bash'], {
       timeoutMs: 600_000, env,
     })
     if (result.stdout) job.output += result.stdout + '\n'
     if (result.stderr) job.output += result.stderr + '\n'
-    if (result.code === 0) {
+
+    // Verify install actually worked — check for the binary
+    clearHermesDetectionCache()
+    const verified = isHermesInstalled()
+
+    if (result.code === 0 && verified) {
       job.status = 'success'
       job.output += '\n> Hermes Agent installed successfully.\n'
       job.output += '> Run "hermes" to start chatting, or "hermes setup" for full configuration.\n'
-      clearHermesDetectionCache()
+    } else if (result.code === 0 && !verified) {
+      job.status = 'failed'
+      job.error = 'Install command succeeded but hermes binary was not found. curl may not be installed.'
+      job.output += '\n> Install command ran but hermes was not detected. Is curl installed?\n'
     } else {
       job.status = 'failed'
       job.error = `Installer exited with code ${result.code}`
