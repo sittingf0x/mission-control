@@ -7,7 +7,7 @@ import { RuntimeSetupModal } from './runtime-setup-modal'
 
 const HERMES_PROVIDERS = [
   { id: 'anthropic', label: 'Anthropic', hermesId: 'anthropic', models: ['claude-sonnet-4-6', 'claude-opus-4-6', 'claude-haiku-4-5'], env: 'ANTHROPIC_API_KEY' },
-  { id: 'openai', label: 'OpenAI', hermesId: 'openai', models: ['gpt-4.1', 'gpt-4.1-mini', 'o3', 'codex-mini-latest'], env: 'OPENAI_API_KEY' },
+  { id: 'openai', label: 'OpenAI', hermesId: 'openai', models: ['gpt-4.1', 'gpt-4.1-mini', 'gpt-4.1-nano', 'o3', 'o4-mini', 'codex-mini-latest', 'gpt-5.3-codex'], env: 'OPENAI_API_KEY' },
   { id: 'openrouter', label: 'OpenRouter', hermesId: 'openrouter', models: ['anthropic/claude-sonnet-4-6', 'openai/gpt-4.1'], env: 'OPENROUTER_API_KEY' },
   { id: 'google', label: 'Google AI', hermesId: 'google', models: ['gemini-2.5-pro', 'gemini-2.5-flash'], env: 'GOOGLE_API_KEY' },
   { id: 'nous', label: 'Nous Portal', hermesId: 'nous', models: ['hermes-3-llama-3.1-70b'], env: 'NOUS_API_KEY' },
@@ -298,6 +298,11 @@ export function StepAgentRuntimes({ isGateway, onNext, onBack }: Props) {
                             placeholder={`${HERMES_PROVIDERS.find(p => p.id === hermesProvider)?.label || ''} API key`}
                             className="w-full h-6 rounded border border-border/20 bg-black/15 px-2 text-[10px] text-foreground font-mono placeholder:text-muted-foreground/30 focus:outline-none focus:ring-1 focus:ring-primary/30"
                           />
+                          {hermesProvider === 'openai' && (
+                            <p className="text-[9px] text-muted-foreground/40">
+                              Or use OAuth: run <code className="bg-black/20 px-0.5 rounded">hermes model</code> in a terminal for browser login
+                            </p>
+                          )}
 
                           {/* Save button */}
                           <button
