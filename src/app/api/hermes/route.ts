@@ -81,7 +81,47 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: true, message: 'Hook uninstalled' })
     }
 
-    return NextResponse.json({ error: 'Invalid action. Must be: install-hook, uninstall-hook' }, { status: 400 })
+    if (action === 'set-env') {
+      const { key, value } = body
+      if (!key || typeof key !== 'string' || !value || typeof value !== 'string') {
+        return NextResponse.json({ error: 'key and value are required' }, { status: 400 })
+      }
+      // Only allow known env var keys
+      const ALLOWED_KEYS = ['ANTHROPIC_API_KEY', 'OPENAI_API_KEY', 'OPENROUTER_API_KEY', 'NOUS_API_KEY']
+      if (!ALLOWED_KEYS.includes(key)) {
+        return NextResponse.json({ error: `Key must be one of: ${ALLOWED_KEYS.join(', ')}` }, { status: 400 })
+      }
+
+      const envPath = join(HERMES_HOME, '.env')
+      let envContent = ''
+      try { envContent = require('node:fs').readFileSync(envPath, 'utf8') } catch { /* new file */ }
+
+      // Replace existing key or append
+      const regex = new RegExp(`^${key}=.*$`, 'm')
+      if (regex.test(envContent)) {
+        envContent = envContent.replace(regex, `${key}=${value}`)
+      } else {
+        envContent = envContent.trimEnd() + `\n${key}=${value}\n`
+      }
+
+      writeFileSync(envPath, envContent, 'utf8')
+      logger.info({ key }, 'Hermes env var set via setup wizard')
+      return NextResponse.json({ success: true })
+    }
+
+    if (action === 'set-soul') {
+      const { content } = body
+      if (typeof content !== 'string') {
+        return NextResponse.json({ error: 'content is required' }, { status: 400 })
+      }
+
+      const soulPath = join(HERMES_HOME, 'SOUL.md')
+      writeFileSync(soulPath, content, 'utf8')
+      logger.info('Hermes SOUL.md updated via setup wizard')
+      return NextResponse.json({ success: true })
+    }
+
+    return NextResponse.json({ error: 'Invalid action' }, { status: 400 })
   } catch (err: any) {
     logger.error({ err }, 'Hermes hook management failed')
     return NextResponse.json({ error: err.message || 'Hook operation failed' }, { status: 500 })

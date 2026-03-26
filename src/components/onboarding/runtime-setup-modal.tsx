@@ -200,10 +200,14 @@ function OpenClawSetup({ onClose, onComplete }: { onClose: () => void; onComplet
 // ─── Hermes Setup ────────────────────────────────────────────────────────
 
 function HermesSetup({ onClose, onComplete }: { onClose: () => void; onComplete: () => void }) {
-  const [step, setStep] = useState<'hook' | 'verify' | 'done'>('hook')
+  const [step, setStep] = useState<'hook' | 'provider' | 'identity' | 'ready'>('hook')
   const [running, setRunning] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [hermesStatus, setHermesStatus] = useState<any>(null)
+  const [providerKey, setProviderKey] = useState('')
+  const [providerType, setProviderType] = useState<'anthropic' | 'openai' | 'openrouter' | 'nous'>('anthropic')
+  const [providerSaved, setProviderSaved] = useState(false)
+  const [soulContent, setSoulContent] = useState('')
 
   const fetchStatus = useCallback(async () => {
     try {
@@ -211,14 +215,14 @@ function HermesSetup({ onClose, onComplete }: { onClose: () => void; onComplete:
       if (res.ok) {
         const data = await res.json()
         setHermesStatus(data)
-        if (data.hookInstalled) {
-          setStep(data.gatewayRunning ? 'done' : 'verify')
+        if (data.hookInstalled && step === 'hook') {
+          setStep('provider')
         }
       }
     } catch {
       // ignore
     }
-  }, [])
+  }, [step])
 
   useEffect(() => { fetchStatus() }, [fetchStatus])
 
@@ -236,7 +240,7 @@ function HermesSetup({ onClose, onComplete }: { onClose: () => void; onComplete:
         throw new Error(data.error || 'Failed to install hook')
       }
       await fetchStatus()
-      setStep('verify')
+      setStep('provider')
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to install hook')
     } finally {
@@ -257,22 +261,30 @@ function HermesSetup({ onClose, onComplete }: { onClose: () => void; onComplete:
       </div>
 
       {/* Step indicators */}
-      <div className="flex items-center gap-2 mb-6">
-        {(['hook', 'verify', 'done'] as const).map((s, i) => (
-          <div key={s} className="flex items-center gap-2">
-            <div className={`w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold ${
-              step === s ? 'bg-primary text-primary-foreground' :
-              (['hook', 'verify', 'done'].indexOf(step) > i) ? 'bg-green-500/20 text-green-400' :
-              'bg-secondary text-muted-foreground'
-            }`}>
-              {(['hook', 'verify', 'done'].indexOf(step) > i) ? (
-                <svg className="w-3 h-3" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M3 8.5l3.5 3.5 6.5-8" /></svg>
-              ) : i + 1}
-            </div>
-            {i < 2 && <div className={`w-8 h-px ${(['hook', 'verify', 'done'].indexOf(step) > i) ? 'bg-green-500/40' : 'bg-border/30'}`} />}
+      {(() => {
+        const steps = ['hook', 'provider', 'identity', 'ready'] as const
+        const currentIdx = steps.indexOf(step)
+        const labels = ['Hook', 'Provider', 'Identity', 'Ready']
+        return (
+          <div className="flex items-center gap-1.5 mb-6">
+            {steps.map((s, i) => (
+              <div key={s} className="flex items-center gap-1.5">
+                <div className={`w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold transition-colors ${
+                  step === s ? 'bg-primary text-primary-foreground' :
+                  currentIdx > i ? 'bg-green-500/20 text-green-400' :
+                  'bg-secondary text-muted-foreground/50'
+                }`}>
+                  {currentIdx > i ? (
+                    <svg className="w-3 h-3" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M3 8.5l3.5 3.5 6.5-8" /></svg>
+                  ) : i + 1}
+                </div>
+                <span className={`text-[10px] ${step === s ? 'text-foreground' : 'text-muted-foreground/40'}`}>{labels[i]}</span>
+                {i < steps.length - 1 && <div className={`w-4 h-px ${currentIdx > i ? 'bg-green-500/40' : 'bg-border/20'}`} />}
+              </div>
+            ))}
           </div>
-        ))}
-      </div>
+        )
+      })()}
 
       {step === 'hook' && (
         <div className="space-y-4">
@@ -309,7 +321,7 @@ function HermesSetup({ onClose, onComplete }: { onClose: () => void; onComplete:
           <div className="flex justify-end gap-2">
             <Button variant="ghost" size="sm" onClick={onClose}>Skip</Button>
             {hermesStatus?.hookInstalled ? (
-              <Button size="sm" onClick={() => setStep('verify')}>Next</Button>
+              <Button size="sm" onClick={() => setStep('provider')}>Next</Button>
             ) : (
               <Button size="sm" onClick={installHook} disabled={running}>
                 {running ? 'Installing...' : 'Install Hook'}
@@ -319,39 +331,55 @@ function HermesSetup({ onClose, onComplete }: { onClose: () => void; onComplete:
         </div>
       )}
 
-      {step === 'verify' && (
+      {step === 'provider' && (
         <div className="space-y-4">
-          {/* Status checks */}
-          <div className="grid grid-cols-2 gap-3">
-            <StatusCard label="Installed" ok={hermesStatus?.installed} />
-            <StatusCard label="Hook Active" ok={hermesStatus?.hookInstalled} />
-            <StatusCard label="Gateway" ok={hermesStatus?.gatewayRunning} subtitle={hermesStatus?.gatewayRunning ? 'Running' : 'Not started (optional)'} />
-            <StatusCard label="Sessions" value={hermesStatus?.activeSessions || 0} ok={true} />
+          <div>
+            <p className="text-sm font-medium mb-1">Configure LLM Provider</p>
+            <p className="text-xs text-muted-foreground">Hermes needs an API key to talk to an LLM. Choose your provider:</p>
           </div>
 
-          {/* Provider config — actionable */}
-          <div className="p-3 rounded-lg border border-border/20 bg-secondary/10 text-xs space-y-2">
-            <p className="font-medium text-foreground/80">Next: Configure a Provider</p>
-            <p className="text-muted-foreground">
-              Hermes needs an LLM provider to work. Run <code className="text-[11px] bg-black/20 px-1 rounded">hermes setup</code> or
-              set an API key:
-            </p>
-            <div className="bg-black/20 rounded p-2 font-mono text-[11px] space-y-0.5">
-              <p><span className="text-muted-foreground/50">#</span> <span className="text-muted-foreground/40">Option 1: Nous Portal (free tier available)</span></p>
-              <p><span className="text-muted-foreground/50">$</span> hermes model</p>
-              <p className="mt-1"><span className="text-muted-foreground/50">#</span> <span className="text-muted-foreground/40">Option 2: Set API key directly</span></p>
-              <p><span className="text-muted-foreground/50">$</span> export ANTHROPIC_API_KEY=sk-ant-...</p>
-              <p><span className="text-muted-foreground/50">$</span> export OPENAI_API_KEY=sk-...</p>
-            </div>
-            <p className="text-muted-foreground/50 text-[10px]">
-              You can also configure providers in ~/.hermes/config.yaml
+          <div className="grid grid-cols-2 gap-2">
+            {([
+              { id: 'anthropic', label: 'Anthropic', hint: 'Claude models', env: 'ANTHROPIC_API_KEY' },
+              { id: 'openai', label: 'OpenAI', hint: 'GPT models', env: 'OPENAI_API_KEY' },
+              { id: 'openrouter', label: 'OpenRouter', hint: '200+ models', env: 'OPENROUTER_API_KEY' },
+              { id: 'nous', label: 'Nous Portal', hint: 'Free tier', env: 'NOUS_API_KEY' },
+            ] as const).map((p) => (
+              <button
+                key={p.id}
+                type="button"
+                onClick={() => setProviderType(p.id)}
+                className={`p-2.5 rounded-lg border text-left text-xs transition-colors ${
+                  providerType === p.id
+                    ? 'border-primary/40 bg-primary/5 text-foreground'
+                    : 'border-border/20 bg-secondary/10 text-muted-foreground hover:border-border/40'
+                }`}
+              >
+                <span className="font-medium">{p.label}</span>
+                <span className="block text-[10px] text-muted-foreground/60 mt-0.5">{p.hint}</span>
+              </button>
+            ))}
+          </div>
+
+          <div>
+            <label className="text-xs text-muted-foreground block mb-1">
+              API Key
+            </label>
+            <input
+              type="password"
+              value={providerKey}
+              onChange={(e) => setProviderKey(e.target.value)}
+              placeholder={`Enter your ${providerType === 'nous' ? 'Nous Portal' : providerType === 'openrouter' ? 'OpenRouter' : providerType === 'anthropic' ? 'Anthropic' : 'OpenAI'} API key...`}
+              className="w-full h-8 rounded border border-border/40 bg-surface-1 px-2.5 text-xs text-foreground placeholder:text-muted-foreground/40 focus:outline-none focus:ring-1 focus:ring-primary/30 font-mono"
+            />
+            <p className="text-[10px] text-muted-foreground/40 mt-1">
+              Saved to ~/.hermes/.env — never sent to Mission Control
             </p>
           </div>
 
-          {/* Gateway info — non-blocking */}
-          {!hermesStatus?.gatewayRunning && (
-            <div className="p-2.5 rounded-lg border border-border/10 bg-secondary/5 text-xs text-muted-foreground/60">
-              The messaging gateway (Telegram, Discord, etc.) is optional. Start it later with <code className="text-[11px] bg-black/20 px-1 rounded">hermes gateway</code>
+          {providerSaved && (
+            <div className="p-2.5 rounded-lg border border-green-500/20 bg-green-500/5 text-xs text-green-400">
+              Provider key saved successfully.
             </div>
           )}
 
@@ -359,22 +387,116 @@ function HermesSetup({ onClose, onComplete }: { onClose: () => void; onComplete:
 
           <div className="flex justify-end gap-2">
             <Button variant="ghost" size="sm" onClick={() => setStep('hook')}>Back</Button>
-            <Button size="sm" onClick={onComplete}>
-              Done
+            <Button variant="ghost" size="sm" onClick={() => setStep('identity')}>Skip</Button>
+            <Button
+              size="sm"
+              disabled={!providerKey.trim() || running}
+              onClick={async () => {
+                setRunning(true)
+                setError(null)
+                try {
+                  const envMap: Record<string, string> = {
+                    anthropic: 'ANTHROPIC_API_KEY',
+                    openai: 'OPENAI_API_KEY',
+                    openrouter: 'OPENROUTER_API_KEY',
+                    nous: 'NOUS_API_KEY',
+                  }
+                  const res = await fetch('/api/hermes', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ action: 'set-env', key: envMap[providerType], value: providerKey }),
+                  })
+                  if (res.ok) {
+                    setProviderSaved(true)
+                    setTimeout(() => setStep('identity'), 800)
+                  } else {
+                    const data = await res.json().catch(() => ({}))
+                    throw new Error(data.error || 'Failed to save')
+                  }
+                } catch (err) {
+                  setError(err instanceof Error ? err.message : 'Failed to save provider key')
+                } finally {
+                  setRunning(false)
+                }
+              }}
+            >
+              {running ? 'Saving...' : 'Save & Continue'}
             </Button>
           </div>
         </div>
       )}
 
-      {step === 'done' && (
+      {step === 'identity' && (
         <div className="space-y-4">
-          <div className="p-4 rounded-lg border border-green-500/30 bg-green-500/5 text-center space-y-2">
-            <div className="text-2xl">+</div>
-            <p className="text-sm font-medium text-green-400">Hermes is connected</p>
+          <div>
+            <p className="text-sm font-medium mb-1">Agent Identity (Optional)</p>
             <p className="text-xs text-muted-foreground">
-              Hook installed. Hermes agents will now report to Mission Control.
+              Customize how Hermes communicates. This is saved as <code className="text-[11px] bg-black/20 px-1 rounded">~/.hermes/SOUL.md</code>
+            </p>
+          </div>
+
+          <textarea
+            value={soulContent}
+            onChange={(e) => setSoulContent(e.target.value)}
+            placeholder="Example: You are a concise technical expert who communicates clearly and directly. You focus on actionable solutions."
+            rows={4}
+            className="w-full rounded border border-border/40 bg-surface-1 px-3 py-2 text-xs text-foreground placeholder:text-muted-foreground/30 focus:outline-none focus:ring-1 focus:ring-primary/30 resize-none"
+          />
+
+          <p className="text-[10px] text-muted-foreground/40">
+            Leave blank to use the default personality. You can change this anytime.
+          </p>
+
+          {error && <p className="text-xs text-red-400">{error}</p>}
+
+          <div className="flex justify-end gap-2">
+            <Button variant="ghost" size="sm" onClick={() => setStep('provider')}>Back</Button>
+            <Button
+              size="sm"
+              onClick={async () => {
+                if (soulContent.trim()) {
+                  try {
+                    await fetch('/api/hermes', {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({ action: 'set-soul', content: soulContent }),
+                    })
+                  } catch {
+                    // non-critical
+                  }
+                }
+                setStep('ready')
+              }}
+            >
+              {soulContent.trim() ? 'Save & Continue' : 'Skip'}
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {step === 'ready' && (
+        <div className="space-y-4">
+          <div className="p-5 rounded-lg border border-green-500/30 bg-green-500/5 text-center space-y-3">
+            <div className="text-3xl">+</div>
+            <p className="text-sm font-semibold text-green-400">Hermes is ready</p>
+            <p className="text-xs text-muted-foreground">
+              Hook installed{providerSaved ? ', provider configured' : ''}{soulContent.trim() ? ', identity set' : ''}.
               {hermesStatus?.cronJobCount > 0 && ` ${hermesStatus.cronJobCount} cron jobs detected.`}
             </p>
+          </div>
+
+          <div className="p-3 rounded-lg border border-border/20 bg-secondary/10 text-xs space-y-2">
+            <p className="font-medium text-foreground/80">What's next?</p>
+            <div className="space-y-1.5 text-muted-foreground">
+              <p>Start chatting with Hermes from the terminal:</p>
+              <div className="bg-black/20 rounded p-2 font-mono text-[11px]">
+                <p><span className="text-muted-foreground/50">$</span> hermes</p>
+              </div>
+              <p className="mt-2">Or set up messaging platforms:</p>
+              <div className="bg-black/20 rounded p-2 font-mono text-[11px]">
+                <p><span className="text-muted-foreground/50">$</span> hermes gateway setup</p>
+              </div>
+            </div>
           </div>
 
           <div className="flex justify-end">
@@ -382,6 +504,7 @@ function HermesSetup({ onClose, onComplete }: { onClose: () => void; onComplete:
           </div>
         </div>
       )}
+
     </div>
   )
 }
