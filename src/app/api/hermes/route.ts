@@ -121,6 +121,95 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: true })
     }
 
+    if (action === 'run-oauth-model') {
+      const { model } = body
+      const hermesBin = join(HERMES_HOME, 'hermes-agent', 'venv', 'bin', 'hermes')
+      const bin = existsSync(hermesBin) ? hermesBin : 'hermes'
+      const HOME_DIR = existsSync(join(dataDir, '.hermes')) ? dataDir : homeDir
+      const baseEnv = {
+        ...process.env,
+        HOME: HOME_DIR,
+        PATH: `${join(dataDir, '.local', 'bin')}:${process.env.PATH || ''}`,
+      }
+
+      try {
+        const { runCommand } = require('@/lib/command')
+
+        // Ensure OpenAI is selected before invoking OAuth device code flow.
+        await runCommand(bin, ['config', 'set', 'model.provider', 'openai'], {
+          timeoutMs: 15_000,
+          env: {
+            ...baseEnv,
+            HERMES_NONINTERACTIVE: '1',
+            CI: '1',
+          },
+        })
+
+        if (typeof model === 'string' && model.trim()) {
+          await runCommand(bin, ['config', 'set', 'model.default', model.trim()], {
+            timeoutMs: 15_000,
+            env: {
+              ...baseEnv,
+              HERMES_NONINTERACTIVE: '1',
+              CI: '1',
+            },
+          })
+        }
+
+        // Run OAuth/device-code flow inside a PTY so interactive prompts/device codes are emitted.
+        const nodePty = await import('node-pty')
+        const ptySpawn = nodePty.spawn || (nodePty as any).default?.spawn
+        if (!ptySpawn) throw new Error('node-pty spawn unavailable')
+
+        const oauthResult: { code: number; output: string } = await new Promise((resolve) => {
+          let output = ''
+          let done = false
+
+          const pty = ptySpawn(bin, ['model'], {
+            name: 'xterm-256color',
+            cols: 120,
+            rows: 30,
+            cwd: HOME_DIR || process.cwd(),
+            env: {
+              ...baseEnv,
+              TERM: 'xterm-256color',
+            } as Record<string, string>,
+          })
+
+          const timeout = setTimeout(() => {
+            if (done) return
+            done = true
+            try { pty.kill() } catch { /* ignore */ }
+            resolve({ code: 124, output: output.trim() })
+          }, 90_000)
+
+          pty.onData((data: string) => {
+            output += data
+            if (output.length > 50_000) output = output.slice(-50_000)
+          })
+
+          pty.onExit(({ exitCode }: { exitCode: number }) => {
+            if (done) return
+            done = true
+            clearTimeout(timeout)
+            resolve({ code: exitCode ?? 1, output: output.trim() })
+          })
+        })
+
+        return NextResponse.json({
+          success: oauthResult.code === 0,
+          output: oauthResult.output,
+          code: oauthResult.code,
+        })
+      } catch (err: any) {
+        return NextResponse.json({
+          success: false,
+          error: err?.message || 'OAuth command failed',
+          output: (err?.stdout || '') + '\n' + (err?.stderr || ''),
+        })
+      }
+    }
+
     if (action === 'run-command') {
       const { command } = body
       if (!command || typeof command !== 'string') {

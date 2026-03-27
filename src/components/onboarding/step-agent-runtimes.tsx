@@ -61,6 +61,9 @@ export function StepAgentRuntimes({ isGateway, onNext, onBack }: Props) {
   const [hermesApiKey, setHermesApiKey] = useState('')
   const [hermesConfigSaved, setHermesConfigSaved] = useState(false)
   const [hermesConfigBusy, setHermesConfigBusy] = useState(false)
+  const [hermesOAuthBusy, setHermesOAuthBusy] = useState(false)
+  const [hermesOAuthOutput, setHermesOAuthOutput] = useState<string | null>(null)
+  const [hermesOAuthError, setHermesOAuthError] = useState<string | null>(null)
   const [hermesMigrating, setHermesMigrating] = useState(false)
   const [hermesMigrateResult, setHermesMigrateResult] = useState<string | null>(null)
 
@@ -263,6 +266,8 @@ export function StepAgentRuntimes({ isGateway, onNext, onBack }: Props) {
                                 const p = HERMES_PROVIDERS.find(pr => pr.id === e.target.value)
                                 setHermesProvider(e.target.value)
                                 setHermesModel(p?.models[0] || '')
+                                setHermesOAuthOutput(null)
+                                setHermesOAuthError(null)
                               }}
                               className="h-7 rounded border border-border/20 bg-card px-1.5 text-[10px] text-foreground focus:outline-none focus:ring-1 focus:ring-primary/30"
                             >
@@ -284,11 +289,61 @@ export function StepAgentRuntimes({ isGateway, onNext, onBack }: Props) {
                           {/* API Key or OAuth */}
                           {hermesProvider === 'openai_oauth' ? (
                             <div className="p-2 rounded border border-border/15 bg-black/10 text-[10px] text-muted-foreground/60 space-y-1.5">
-                              <p>OAuth uses device code flow — run in a terminal:</p>
-                              <div className="bg-black/20 rounded px-2 py-1 font-mono text-[10px]">
-                                $ hermes model
+                              <p>OAuth uses device code flow:</p>
+                              <div className="flex items-center gap-1.5 bg-black/20 rounded px-2 py-1 font-mono text-[10px]">
+                                <span className="text-muted-foreground/50">$</span>
+                                <span className="flex-1 text-foreground/80">hermes model</span>
+                                <button
+                                  type="button"
+                                  disabled={hermesOAuthBusy}
+                                  onClick={async () => {
+                                    setHermesOAuthBusy(true)
+                                    setHermesOAuthOutput(null)
+                                    setHermesOAuthError(null)
+                                    try {
+                                      const res = await fetch('/api/hermes', {
+                                        method: 'POST',
+                                        headers: { 'Content-Type': 'application/json' },
+                                        body: JSON.stringify({ action: 'run-oauth-model', model: hermesModel }),
+                                      })
+                                      const data = await res.json()
+                                      if (res.ok && data.success) {
+                                        setHermesOAuthOutput(data.output || 'Done')
+                                      } else {
+                                        setHermesOAuthError(data.error || 'OAuth command failed')
+                                        if (data.output) setHermesOAuthOutput(data.output)
+                                      }
+                                    } catch (err) {
+                                      setHermesOAuthError(err instanceof Error ? err.message : 'OAuth command failed')
+                                    } finally {
+                                      setHermesOAuthBusy(false)
+                                    }
+                                  }}
+                                  className="text-[9px] px-1.5 py-0.5 rounded bg-primary/20 text-primary hover:bg-primary/30 transition-colors disabled:opacity-50"
+                                >
+                                  {hermesOAuthBusy ? 'Running...' : 'Run'}
+                                </button>
                               </div>
-                              <p className="text-[9px] text-muted-foreground/30">Opens a browser for login. No API key needed.</p>
+                              <p className="text-[9px] text-muted-foreground/30">Shows the device-code login link/code output. No API key needed.</p>
+                              {hermesOAuthOutput && (() => {
+                                const loginUrl = hermesOAuthOutput.match(/https?:\/\/[^\s]+/)?.[0]
+                                return (
+                                  <div className="space-y-1">
+                                    {loginUrl && (
+                                      <a
+                                        href={loginUrl}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="inline-flex text-[9px] text-primary/90 underline underline-offset-2 hover:text-primary"
+                                      >
+                                        Open device login link
+                                      </a>
+                                    )}
+                                    <pre className="max-h-24 overflow-y-auto bg-black/20 rounded px-2 py-1 text-[9px] text-muted-foreground/70 whitespace-pre-wrap break-all">{hermesOAuthOutput}</pre>
+                                  </div>
+                                )
+                              })()}
+                              {hermesOAuthError && <p className="text-[9px] text-red-400">{hermesOAuthError}</p>}
                             </div>
                           ) : (
                             <input
