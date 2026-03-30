@@ -6,6 +6,8 @@ services:
       - OPENCLAW_HOME=/openclaw-home
       - OPENCLAW_STATE_DIR=/openclaw-home
       - OPENCLAW_CONFIG_PATH=/openclaw-home/openclaw.json
+      # OpenClaw git clone (scripts/validate-fleet-sync.js) — MC header "Stack verify"
+      - OPENCLAW_REPO=/openclaw-repo
       - OPENCLAW_BIN=/openclaw-npm/bin/openclaw
       - OPENCLAW_GATEWAY_HOST=127.0.0.1
       - OPENCLAW_GATEWAY_PORT=18789
@@ -14,6 +16,8 @@ services:
     volumes:
       - mc-data:/app/.data
       - /home/ubuntu/.openclaw:/openclaw-home
+      # Read-only: validation scripts only (git pull on host updates this tree)
+      - /home/ubuntu/openclaw-repo:/openclaw-repo:ro
       - /home/ubuntu/.npm-global:/openclaw-npm:ro
       # nemoclaw plugin mkdir ~/.nemoclaw — /home/node is on read-only image layer
       - mc-nemoclaw-home:/home/node/.nemoclaw

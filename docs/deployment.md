@@ -101,6 +101,29 @@ SQLite database is stored in `/app/.data/` inside the container. Mount a volume 
 docker run -v /path/to/data:/app/.data ...
 ```
 
+## Consolidated host (OpenClaw + Mission Control on one machine)
+
+The repo includes an example **`docker-compose.override.yml`** used on EC2-style hosts:
+
+- **`OPENCLAW_HOME`** is bind-mounted from `/home/ubuntu/.openclaw` → `/openclaw-home` inside the container.
+- **`OPENCLAW_REPO`** is set to **`/openclaw-repo`** with **`/home/ubuntu/openclaw-repo:/openclaw-repo:ro`** so the dashboard **Stack verify** button can run `scripts/validate-fleet-sync.js` and `scripts/validate-workspace-paths.mjs` (same as `npm run verify:stack` in the OpenClaw repo).
+
+On the host, ensure the clone exists and tracks `main`:
+
+```bash
+sudo -u ubuntu test -d /home/ubuntu/openclaw-repo || sudo -u ubuntu git clone https://github.com/sittingf0x/openclaw.git /home/ubuntu/openclaw-repo
+sudo -u ubuntu git -C /home/ubuntu/openclaw-repo pull --ff-only
+```
+
+If your live fleet and `fleet-manifest.json` live under **`~/.openclaw-human`** instead of **`~/.openclaw`**, either keep manifests in sync between those directories or change the override mount for `/openclaw-home` to **`/home/ubuntu/.openclaw-human`**. Stack verify always uses whatever **`OPENCLAW_HOME`** the container sees.
+
+After changing the override:
+
+```bash
+cd /path/to/mission-control
+docker compose up -d --build
+```
+
 ## Environment Variables
 
 See `.env.example` for the full list. Key variables:
@@ -113,6 +136,7 @@ See `.env.example` for the full list. Key variables:
 | `API_KEY` | Yes | - | API key for headless access |
 | `PORT` | No | `3005` (direct) / `3000` (Docker) | Server port |
 | `OPENCLAW_HOME` | No | - | Path to OpenClaw installation |
+| `OPENCLAW_REPO` | No | - | Path to OpenClaw **git clone** (contains `scripts/`) — required for MC **Stack verify** unless using default Docker mount |
 | `MC_ALLOWED_HOSTS` | No | `localhost,127.0.0.1` | Allowed hosts in production |
 
 ## Troubleshooting
