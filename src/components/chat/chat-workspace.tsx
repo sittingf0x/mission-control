@@ -10,6 +10,7 @@ import { ChatInput } from './chat-input'
 import { Button } from '@/components/ui/button'
 import { SessionMessage, shouldShowTimestamp, type SessionTranscriptMessage } from './session-message'
 import { getSessionKindLabel, SessionKindAvatar } from './session-kind-brand'
+import { ChatDeepLink } from './chat-deep-link'
 
 const log = createClientLogger('ChatWorkspace')
 
@@ -310,6 +311,7 @@ export function ChatWorkspace({ mode = 'embedded', onClose }: ChatWorkspaceProps
 
   return (
     <div className={`flex h-full flex-col bg-card ${focusMode ? 'fixed inset-0 z-50' : ''}`}>
+      <ChatDeepLink />
       {/* Header */}
       <div className={`glass-strong flex h-12 flex-shrink-0 items-center justify-between border-b border-border px-4 ${focusMode ? 'h-10' : ''}`}>
         <div className="flex items-center gap-3">

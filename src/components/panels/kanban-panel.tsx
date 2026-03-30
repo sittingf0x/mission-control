@@ -27,7 +27,7 @@ type KanbanBoard = {
 }
 
 type CompanyRow = { id: string; name?: string }
-type AgentRow = { name: string }
+type AgentRow = { name: string; session_key?: string }
 
 export function KanbanPanel() {
   const [companies, setCompanies] = useState<CompanyRow[]>([])
@@ -77,8 +77,13 @@ export function KanbanPanel() {
     const res = await fetch('/api/agents?limit=100')
     const data = await res.json()
     if (!res.ok) return
-    const list = (data.agents || []) as Array<{ name: string }>
-    setAgents(list.map((a) => ({ name: a.name })))
+            const list = (data.agents || []) as Array<{ name: string; session_key?: string }>
+    setAgents(
+      list.map((a) => ({
+        name: a.name,
+        session_key: typeof a.session_key === 'string' ? a.session_key : undefined,
+      })),
+    )
   }, [])
 
   const loadLinear = useCallback(async () => {
@@ -214,6 +219,15 @@ export function KanbanPanel() {
   }
 
   const prLinks = useMemo(() => parseGitHubPrUrl(reviewUrl), [reviewUrl])
+
+  const assigneeChatHref = useMemo(() => {
+    const id = (assignee || editTask?.assigneeAgentId || 'jarvis').trim()
+    const ag = agents.find((a) => a.name === id)
+    if (ag?.session_key) {
+      return `/chat?sessionKey=${encodeURIComponent(ag.session_key)}`
+    }
+    return `/chat?agent=${encodeURIComponent(id)}`
+  }, [assignee, editTask?.assigneeAgentId, agents])
 
   async function createLinearIssue() {
     if (!editTask || !board || !companyId || !linearInfo?.configured) return
@@ -545,8 +559,8 @@ export function KanbanPanel() {
                 workspace/Projects/{companyId}/{projectSlug}/kanban/board.json
               </code>
               <div className="flex flex-wrap gap-x-3 gap-y-1 pt-1">
-                <Link href="/chat" className="text-primary underline">
-                  Open Chat
+                <Link href={assigneeChatHref} className="text-primary underline">
+                  Open Chat (assignee)
                 </Link>
                 <Link href="/agents" className="text-primary underline">
                   Open Agents
