@@ -14,6 +14,7 @@ import { detectProviderSubscriptions, getPrimarySubscription } from '@/lib/provi
 import { APP_VERSION } from '@/lib/version'
 import { isHermesInstalled, scanHermesSessions } from '@/lib/hermes-sessions'
 import { registerMcAsDashboard } from '@/lib/gateway-runtime'
+import { checkGatewayHealth } from '@openclaw/mc-client'
 
 export async function GET(request: NextRequest) {
   // Docker/Kubernetes health probes must work without auth/cookies.
@@ -600,10 +601,43 @@ async function performHealthCheck() {
   return health
 }
 
+function normalizeGatewayLoopbackHost(host: string): string {
+  if (host === 'localhost' || host === '::1') return '127.0.0.1'
+  return host
+}
+
+/** Prefer HTTP /health (matches gateway behavior); TCP is fallback only. */
+async function gatewayReachableViaHttp(): Promise<boolean> {
+  const tryOne = async (host: string, port: number) => {
+    const h = normalizeGatewayLoopbackHost(host)
+    const r = await checkGatewayHealth(`http://${h}:${port}`, { retries: 2, timeout: 4000 })
+    return r.ok === true
+  }
+  try {
+    const db = getDatabase()
+    const table = db.prepare(
+      "SELECT name FROM sqlite_master WHERE type='table' AND name='gateways'"
+    ).get() as { name?: string } | undefined
+    if (table?.name) {
+      const rows = db.prepare('SELECT host, port FROM gateways').all() as { host: string; port: number }[]
+      for (const row of rows) {
+        if (await tryOne(row.host, Number(row.port))) return true
+      }
+    }
+  } catch {
+    /* fall through */
+  }
+  if (await tryOne(config.gatewayHost, config.gatewayPort)) return true
+  if (config.gatewayHost !== '127.0.0.1' || config.gatewayPort !== 18789) {
+    if (await tryOne('127.0.0.1', 18789)) return true
+  }
+  return false
+}
+
 async function getCapabilities(request?: NextRequest) {
   // Probe configured gateways (if any) or fall back to the default port.
   // A DB row alone isn't enough — the gateway must actually be reachable.
-  let gatewayReachable = false
+  let gatewayReachableTcp = false
   try {
     const db = getDatabase()
     const table = db.prepare(
@@ -612,16 +646,20 @@ async function getCapabilities(request?: NextRequest) {
     if (table?.name) {
       const rows = db.prepare('SELECT host, port FROM gateways').all() as { host: string; port: number }[]
       if (rows.length > 0) {
-        const probes = rows.map(r => isPortOpen(r.host, Number(r.port)))
+        const probes = rows.map(r => isPortOpen(normalizeGatewayLoopbackHost(r.host), Number(r.port)))
         const results = await Promise.all(probes)
-        gatewayReachable = results.some(Boolean)
+        gatewayReachableTcp = results.some(Boolean)
       }
     }
   } catch {
     // ignore — fall through to default probe
   }
 
-  const gateway = gatewayReachable || await isPortOpen(config.gatewayHost, config.gatewayPort)
+  const gatewayHttp = await gatewayReachableViaHttp()
+  const gatewayTcp =
+    gatewayReachableTcp ||
+    (await isPortOpen(normalizeGatewayLoopbackHost(config.gatewayHost), config.gatewayPort))
+  const gateway = gatewayHttp || gatewayTcp
 
   const openclawHome = Boolean(
     (config.openclawStateDir && existsSync(config.openclawStateDir)) ||

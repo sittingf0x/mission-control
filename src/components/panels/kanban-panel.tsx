@@ -1,6 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import Link from 'next/link'
 import { Button } from '@/components/ui/button'
 import { parseGitHubPrUrl } from '@/lib/github-pr-links'
 
@@ -536,6 +537,28 @@ export function KanbanPanel() {
                 </a>
               </div>
             ) : null}
+            <div className="text-2xs text-muted-foreground space-y-1 border-t border-border/60 pt-2 mt-1">
+              <div>
+                Kanban file (under <code className="text-foreground/90">OPENCLAW_HOME</code>):
+              </div>
+              <code className="block text-[11px] text-foreground/80 break-all bg-muted/30 rounded px-1.5 py-1">
+                workspace/Projects/{companyId}/{projectSlug}/kanban/board.json
+              </code>
+              <div className="flex flex-wrap gap-x-3 gap-y-1 pt-1">
+                <Link href="/chat" className="text-primary underline">
+                  Open Chat
+                </Link>
+                <Link href="/agents" className="text-primary underline">
+                  Open Agents
+                </Link>
+                {editTask.assigneeAgentId ? (
+                  <span>
+                    Assignee:{' '}
+                    <span className="text-foreground/90">{editTask.assigneeAgentId}</span>
+                  </span>
+                ) : null}
+              </div>
+            </div>
             {linearInfo?.configured ? (
               <div className="space-y-2 border rounded p-2 bg-muted/20">
                 <div className="text-2xs font-medium text-muted-foreground">Linear</div>

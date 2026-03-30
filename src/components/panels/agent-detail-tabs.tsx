@@ -339,10 +339,37 @@ export function SoulTab({
   const [editing, setEditing] = useState(false)
   const [content, setContent] = useState(soulContent)
   const [selectedTemplate, setSelectedTemplate] = useState<string>('')
+  const [diskPersona, setDiskPersona] = useState<{
+    openclawHome?: string
+    files?: Record<string, string>
+  } | null>(null)
+  const [diskPersonaErr, setDiskPersonaErr] = useState<string | null>(null)
 
   useEffect(() => {
     setContent(soulContent)
   }, [soulContent])
+
+  useEffect(() => {
+    let cancelled = false
+    setDiskPersonaErr(null)
+    fetch(`/api/agents/${encodeURIComponent(agent.name)}/persona`)
+      .then(async (res) => {
+        if (!res.ok) return null
+        return res.json() as Promise<{ openclawHome?: string; files?: Record<string, string> }>
+      })
+      .then((data) => {
+        if (cancelled || !data?.files) return
+        const keys = Object.keys(data.files)
+        if (keys.length === 0) return
+        setDiskPersona({ openclawHome: data.openclawHome, files: data.files })
+      })
+      .catch(() => {
+        if (!cancelled) setDiskPersonaErr('Could not load workspace persona files')
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [agent.name])
 
   const handleSave = async () => {
     await onSave(content)
@@ -379,6 +406,37 @@ export function SoulTab({
           )}
         </div>
       </div>
+
+      {(diskPersona?.files && Object.keys(diskPersona.files).length > 0) || diskPersonaErr ? (
+        <div className="rounded-lg border border-border bg-surface-1/30 p-4 space-y-3">
+          <div className="flex flex-wrap items-baseline justify-between gap-2">
+            <h5 className="text-sm font-medium text-foreground">OpenClaw workspace (read-only)</h5>
+            {diskPersona?.openclawHome ? (
+              <span className="text-2xs text-muted-foreground font-mono truncate max-w-[min(100%,28rem)]" title={diskPersona.openclawHome}>
+                {diskPersona.openclawHome}
+              </span>
+            ) : null}
+          </div>
+          {diskPersonaErr ? (
+            <p className="text-xs text-amber-500">{diskPersonaErr}</p>
+          ) : null}
+          {diskPersona?.files
+            ? (['soul', 'skills', 'working', 'mission'] as const).map((key) => {
+                const text = diskPersona.files![key]
+                if (!text) return null
+                const label = key === 'soul' ? 'SOUL.md' : key === 'skills' ? 'SKILLS.md' : key === 'working' ? 'WORKING.md' : 'MISSION.md'
+                return (
+                  <div key={key}>
+                    <div className="text-2xs font-medium text-muted-foreground mb-1">{label}</div>
+                    <pre className="text-xs text-foreground whitespace-pre-wrap max-h-40 overflow-y-auto bg-surface-1/50 rounded p-2 border border-border/60">
+                      {text}
+                    </pre>
+                  </div>
+                )
+              })
+            : null}
+        </div>
+      ) : null}
 
       {/* Template Selector */}
       {editing && templates.length > 0 && (
