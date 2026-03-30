@@ -10,6 +10,7 @@ import { Button } from '@/components/ui/button'
 import { ThemeSelector } from '@/components/ui/theme-selector'
 import { DigitalClock } from '@/components/ui/digital-clock'
 import { CompanyPicker } from '@/components/layout/company-picker'
+import { StackVerifyBar } from '@/components/layout/stack-verify-bar'
 import { getNavigationMetrics, navigationMetricEventName } from '@/lib/navigation-metrics'
 
 interface SearchResult {
@@ -321,6 +322,7 @@ export function HeaderBar() {
 
           <ModeBadge connection={connection} onReconnect={reconnect} />
           <CompanyPicker />
+          <StackVerifyBar />
         </div>
 
         {/* Center: wide command search (desktop) */}
