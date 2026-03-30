@@ -1,0 +1,28 @@
+services:
+  mission-control:
+    user: 1000:1000
+    environment:
+      - NODE_OPTIONS=--max-old-space-size=1536
+      - OPENCLAW_HOME=/openclaw-home
+      - OPENCLAW_STATE_DIR=/openclaw-home
+      - OPENCLAW_CONFIG_PATH=/openclaw-home/openclaw.json
+      - OPENCLAW_BIN=/openclaw-npm/bin/openclaw
+      - OPENCLAW_GATEWAY_HOST=127.0.0.1
+      - OPENCLAW_GATEWAY_PORT=18789
+      - OPENCLAW_TOOLS_PROFILE=coding
+      - HOSTNAME=127.0.0.1
+    volumes:
+      - mc-data:/app/.data
+      - /home/ubuntu/.openclaw:/openclaw-home
+      - /home/ubuntu/.npm-global:/openclaw-npm:ro
+      # nemoclaw plugin mkdir ~/.nemoclaw — /home/node is on read-only image layer
+      - mc-nemoclaw-home:/home/node/.nemoclaw
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+          cpus: 2.0
+          pids: 512
+
+volumes:
+  mc-nemoclaw-home:

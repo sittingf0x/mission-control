@@ -29,6 +29,8 @@ import { SuperAdminPanel } from '@/components/panels/super-admin-panel'
 import { OfficePanel } from '@/components/panels/office-panel'
 import { GitHubSyncPanel } from '@/components/panels/github-sync-panel'
 import { SkillsPanel } from '@/components/panels/skills-panel'
+import { SkillArchitectPanel } from '@/components/panels/skill-architect-panel'
+import { KanbanPanel } from '@/components/panels/kanban-panel'
 import { LocalAgentsDocPanel } from '@/components/panels/local-agents-doc-panel'
 import { ChannelsPanel } from '@/components/panels/channels-panel'
 import { DebugPanel } from '@/components/panels/debug-panel'
@@ -427,7 +429,7 @@ export default function Home() {
 }
 
 const ESSENTIAL_PANELS = new Set([
-  'overview', 'agents', 'tasks', 'chat', 'activity', 'logs', 'settings',
+  'overview', 'agents', 'tasks', 'kanban', 'chat', 'activity', 'logs', 'settings', 'skill-architect',
 ])
 
 function ContentRouter({ tab }: { tab: string }) {
@@ -479,6 +481,8 @@ function ContentRouter({ tab }: { tab: string }) {
       )
     case 'tasks':
       return <TaskBoardPanel />
+    case 'kanban':
+      return <KanbanPanel />
     case 'agents':
       return (
         <>
@@ -532,6 +536,8 @@ function ContentRouter({ tab }: { tab: string }) {
       return <OfficePanel />
     case 'skills':
       return <SkillsPanel />
+    case 'skill-architect':
+      return <SkillArchitectPanel />
     case 'channels':
       if (isLocal) return <LocalModeUnavailable panel={tab} />
       return <ChannelsPanel />

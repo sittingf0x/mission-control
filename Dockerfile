@@ -6,6 +6,7 @@ FROM base AS deps
 # Copy only dependency manifests first for better layer caching
 COPY package.json ./
 COPY pnpm-lock.yaml* ./
+COPY packages/mc-client ./packages/mc-client
 # better-sqlite3 requires native compilation tools
 RUN apt-get update && apt-get install -y python3 make g++ --no-install-recommends && rm -rf /var/lib/apt/lists/*
 RUN if [ -f pnpm-lock.yaml ]; then \
@@ -21,6 +22,11 @@ COPY . .
 RUN pnpm build
 
 FROM node:22.22.0-slim AS runtime
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    procps ca-certificates curl git gh jq ripgrep python3 python3-pip ffmpeg tmux \
+    && python3 -m pip install --break-system-packages uv \
+    && npm install -g @openai/codex @google/gemini-cli \
+    && rm -rf /var/lib/apt/lists/*
 
 ARG MC_VERSION=dev
 LABEL org.opencontainers.image.source="https://github.com/openclaw/mission-control"

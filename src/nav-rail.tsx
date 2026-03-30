@@ -26,6 +26,7 @@ const navGroups: NavGroup[] = [
       { id: 'agents', label: 'Agents', icon: <AgentsIcon />, priority: true },
       { id: 'tasks', label: 'Tasks', icon: <TasksIcon />, priority: true },
       { id: 'chat', label: 'Chat', icon: <SessionsIcon />, priority: false },
+      { id: 'skill-architect', label: 'Skill Architect', icon: <SpawnIcon />, priority: true },
     ],
   },
   {
@@ -44,7 +45,7 @@ const navGroups: NavGroup[] = [
     items: [
       { id: 'cron', label: 'Cron', icon: <CronIcon />, priority: false },
       { id: 'spawn', label: 'Spawn', icon: <SpawnIcon />, priority: false },
-      { id: 'webhooks', label: 'Webhooks', icon: <WebhookIcon />, priority: false },
+            { id: 'webhooks', label: 'Webhooks', icon: <WebhookIcon />, priority: false },
       { id: 'alerts', label: 'Alerts', icon: <AlertIcon />, priority: false },
     ],
   },

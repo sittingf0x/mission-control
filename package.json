@@ -1,6 +1,6 @@
 {
   "name": "mission-control",
-  "version": "2.0.0",
+  "version": "2.0.1",
   "description": "OpenClaw Mission Control — open-source agent orchestration dashboard",
   "scripts": {
     "verify:node": "node scripts/check-node-version.mjs",
@@ -22,6 +22,7 @@
     "quality:gate": "pnpm test:all"
   },
   "dependencies": {
+    "@openclaw/mc-client": "file:./packages/mc-client",
     "@radix-ui/react-slot": "^1.2.4",
     "@scalar/api-reference-react": "^0.8.66",
     "@xyflow/react": "^12.10.0",

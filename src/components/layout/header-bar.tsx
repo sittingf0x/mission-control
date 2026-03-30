@@ -9,6 +9,7 @@ import { useNavigateToPanel, usePrefetchPanel } from '@/lib/navigation'
 import { Button } from '@/components/ui/button'
 import { ThemeSelector } from '@/components/ui/theme-selector'
 import { DigitalClock } from '@/components/ui/digital-clock'
+import { CompanyPicker } from '@/components/layout/company-picker'
 import { getNavigationMetrics, navigationMetricEventName } from '@/lib/navigation-metrics'
 
 interface SearchResult {
@@ -26,6 +27,7 @@ const QUICK_NAV_COMMANDS: Array<{ panel: string; title: string; aliases: string[
   { panel: 'overview', title: 'Go to Overview', aliases: ['home', 'dashboard'] },
   { panel: 'chat', title: 'Go to Chat', aliases: ['sessions', 'messages'] },
   { panel: 'tasks', title: 'Go to Tasks', aliases: ['task board', 'tickets'] },
+  { panel: 'kanban', title: 'Go to Kanban', aliases: ['board', 'openclaw kanban'] },
   { panel: 'agents', title: 'Go to Agents', aliases: ['agent squad', 'workers'] },
   { panel: 'activity', title: 'Go to Activity Feed', aliases: ['events', 'feed'] },
   { panel: 'notifications', title: 'Go to Notifications', aliases: ['alerts inbox'] },
@@ -318,6 +320,7 @@ export function HeaderBar() {
           ) : null}
 
           <ModeBadge connection={connection} onReconnect={reconnect} />
+          <CompanyPicker />
         </div>
 
         {/* Center: wide command search (desktop) */}

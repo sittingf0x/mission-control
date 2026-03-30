@@ -117,6 +117,24 @@ export function MemoryGraph() {
   const [hoveredNode, setHoveredNode] = useState<{ label: string; sub?: string } | null>(null)
 
   const graphRef = useRef<GraphCanvasRef | null>(null)
+  const containerRef = useRef<HTMLDivElement | null>(null)
+
+  const syncCanvasToContainer = useCallback(() => {
+    const host = containerRef.current
+    const canvasEl = host?.querySelector('canvas') as HTMLCanvasElement | null
+    if (!host || !canvasEl) return
+
+    const hostRect = host.getBoundingClientRect()
+    const targetWidth = Math.max(1, Math.round(hostRect.width))
+    const targetHeight = Math.max(1, Math.round(hostRect.height))
+
+    if (canvasEl.width !== targetWidth || canvasEl.height !== targetHeight) {
+      canvasEl.width = targetWidth
+      canvasEl.height = targetHeight
+      canvasEl.style.width = `${targetWidth}px`
+      canvasEl.style.height = `${targetHeight}px`
+    }
+  }, [])
 
   // Fetch data
   const fetchData = useCallback(async () => {
@@ -261,14 +279,63 @@ export function MemoryGraph() {
     return { graphNodes: nodes, graphEdges: edges }
   }, [agents, selectedAgent, searchQuery])
 
-  // Auto-fit the graph after layout settles (nodes change)
+  useEffect(() => {
+    const el = containerRef.current
+    if (!el) return
+
+    let raf = 0
+    let prevWidth = -1
+    let prevHeight = -1
+
+    const inspectAndFit = () => {
+      const rect = el.getBoundingClientRect()
+      const width = Math.round(rect.width)
+      const height = Math.round(rect.height)
+
+      if (!graphNodes.length || width <= 0 || height <= 0 || !graphRef.current) return
+
+      const changed = Math.abs(width - prevWidth) > 12 || Math.abs(height - prevHeight) > 12
+      prevWidth = width
+      prevHeight = height
+
+      if (!changed) return
+
+      syncCanvasToContainer()
+      graphRef.current.fitNodesInView()
+    }
+
+    inspectAndFit()
+
+    const ro = new ResizeObserver(() => {
+      if (raf) cancelAnimationFrame(raf)
+      raf = requestAnimationFrame(inspectAndFit)
+    })
+    ro.observe(el)
+
+    const onWindowResize = () => {
+      if (raf) cancelAnimationFrame(raf)
+      raf = requestAnimationFrame(inspectAndFit)
+    }
+    window.addEventListener('resize', onWindowResize)
+
+    return () => {
+      if (raf) cancelAnimationFrame(raf)
+      ro.disconnect()
+      window.removeEventListener('resize', onWindowResize)
+    }
+  }, [graphNodes.length, syncCanvasToContainer])
+
+  // Auto-fit graph whenever its data changes
   useEffect(() => {
     if (!graphNodes.length) return
-    // reagraph force layout needs time to settle before fitNodesInView works
-    const t1 = setTimeout(() => graphRef.current?.fitNodesInView(), 800)
-    const t2 = setTimeout(() => graphRef.current?.fitNodesInView(), 2000)
-    return () => { clearTimeout(t1); clearTimeout(t2) }
-  }, [graphNodes.length, selectedAgent])
+
+    const raf = requestAnimationFrame(() => {
+      syncCanvasToContainer()
+      graphRef.current?.fitNodesInView()
+    })
+
+    return () => cancelAnimationFrame(raf)
+  }, [graphEdges.length, graphNodes.length, selectedAgent, syncCanvasToContainer])
 
   // Navigation helpers
   const goBack = useCallback(() => {
@@ -362,7 +429,7 @@ export function MemoryGraph() {
   const activeAgent = selectedAgent !== 'all' ? agents.find(a => a.name === selectedAgent) : null
 
   return (
-    <div className="relative h-full w-full overflow-hidden" style={{ background: '#11111b' }}>
+    <div ref={containerRef} className="relative h-full w-full overflow-hidden" style={{ background: '#11111b' }}>
       {/* Full-bleed graph canvas */}
       <GraphCanvas
         ref={graphRef}

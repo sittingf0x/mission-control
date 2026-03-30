@@ -1,0 +1,10 @@
+{
+  "name": "@openclaw/mc-client",
+  "version": "1.0.0",
+  "description": "Gateway health check and persona file reader for Mission Control",
+  "type": "module",
+  "main": "index.js",
+  "exports": {
+    ".": "./index.js"
+  }
+}

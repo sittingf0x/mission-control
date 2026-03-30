@@ -118,9 +118,9 @@ function resolveRemoteGatewayUrl(
     return `wss://${browserHost}/gw`
   }
 
-  // No Tailscale Serve — try direct connection to dashboard host on gateway port
+  // No Tailscale Serve — use dashboard-hosted /gw reverse proxy (keeps gateway port private).
   const protocol = inferBrowserProtocol(request) === 'https:' ? 'wss' : 'ws'
-  return `${protocol}://${browserHost}:${gateway.port}`
+  return `${protocol}://${browserHost}/gw`
 }
 
 function ensureTable(db: ReturnType<typeof getDatabase>) {

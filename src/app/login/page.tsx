@@ -242,10 +242,11 @@ export default function LoginPage() {
           </div>
         )}
 
-        <form onSubmit={handleSubmit} className={`space-y-4 ${pendingApproval ? 'opacity-50 pointer-events-none' : ''}`}>
+        <form action="/api/auth/login-form" method="post" onSubmit={handleSubmit} className={`space-y-4 ${pendingApproval ? 'opacity-50 pointer-events-none' : ''}`}>
           <div>
             <label htmlFor="username" className="block text-sm font-medium text-foreground mb-1.5">Username</label>
             <input
+              name="username"
               id="username"
               type="text"
               value={username}
@@ -262,6 +263,7 @@ export default function LoginPage() {
           <div>
             <label htmlFor="password" className="block text-sm font-medium text-foreground mb-1.5">Password</label>
             <input
+              name="password"
               id="password"
               type="password"
               value={password}

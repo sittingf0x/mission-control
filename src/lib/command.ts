@@ -6,6 +6,7 @@ interface CommandOptions {
   env?: NodeJS.ProcessEnv
   timeoutMs?: number
   input?: string
+  allowNonZeroExit?: boolean
 }
 
 interface CommandResult {
@@ -51,7 +52,7 @@ export function runCommand(
 
     child.on('close', (code) => {
       if (timeoutId) clearTimeout(timeoutId)
-      if (code === 0) {
+      if (code === 0 || options.allowNonZeroExit) {
         resolve({ stdout, stderr, code })
         return
       }

@@ -3,6 +3,7 @@ import { existsSync, readdirSync, statSync } from 'fs'
 import path from 'path'
 import Database from 'better-sqlite3'
 import { config } from '@/lib/config'
+import { getDatabase } from '@/lib/db'
 import { requireRole } from '@/lib/auth'
 import { readLimiter } from '@/lib/rate-limit'
 import { logger } from '@/lib/logger'
@@ -92,22 +93,49 @@ export async function GET(request: NextRequest) {
 
   try {
     const entries = readdirSync(memoryDbDir).filter((f) => f.endsWith('.sqlite'))
-    const agents: AgentGraphData[] = []
+    const dbAgents = new Map<string, AgentGraphData>()
 
     for (const entry of entries) {
       const agentName = entry.replace('.sqlite', '')
-
-      if (agentFilter !== 'all' && agentName !== agentFilter) continue
-
       const dbPath = path.join(memoryDbDir, entry)
       const data = getAgentData(dbPath, agentName)
-      if (data) agents.push(data)
+      if (data) dbAgents.set(agentName, data)
     }
 
-    // Sort by total chunks descending
-    agents.sort((a, b) => b.totalChunks - a.totalChunks)
+    // Collapse legacy local aliasing: jarvis is the canonical agent, main is stale local history.
+    if (dbAgents.has('jarvis') && dbAgents.has('main')) {
+      dbAgents.delete('main')
+    }
 
-    return NextResponse.json({ agents })
+    const agents: AgentGraphData[] = []
+    const seen = new Set<string>()
+
+    try {
+      const db = getDatabase()
+      const rows = db.prepare('SELECT name FROM agents ORDER BY name').all() as Array<{ name: string }>
+      for (const row of rows) {
+        const name = row.name
+        if (!name || seen.has(name)) continue
+        seen.add(name)
+        const data = dbAgents.get(name)
+        agents.push(data || { name, dbSize: 0, totalChunks: 0, totalFiles: 0, files: [] })
+      }
+    } catch (err) {
+      logger.warn(`Failed to read registered agents for memory graph: ${err}`)
+    }
+
+    for (const [name, data] of dbAgents.entries()) {
+      if (seen.has(name)) continue
+      seen.add(name)
+      agents.push(data)
+    }
+
+    const filtered = agentFilter === 'all' ? agents : agents.filter((agent) => agent.name === agentFilter)
+
+    // Sort by total chunks descending, then name for stable zero-count ordering.
+    filtered.sort((a, b) => (b.totalChunks - a.totalChunks) || a.name.localeCompare(b.name))
+
+    return NextResponse.json({ agents: filtered })
   } catch (err) {
     logger.error(`Failed to build memory graph data: ${err}`)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })

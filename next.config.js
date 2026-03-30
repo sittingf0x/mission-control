@@ -6,7 +6,7 @@ const nextConfig = {
   },
   turbopack: {},
   // Transpile ESM-only packages so they resolve correctly in all environments
-  transpilePackages: ['react-markdown', 'remark-gfm'],
+  transpilePackages: ['react-markdown', 'remark-gfm', '@openclaw/mc-client'],
   
   // Security headers
   // Content-Security-Policy is set in src/proxy.ts with a per-request nonce.
